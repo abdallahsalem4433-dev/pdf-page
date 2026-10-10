@@ -1,94 +1,77 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>المستند الإلكتروني</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>المستند الإلكتروني</title>
+<style>
+* { box-sizing: border-box; }
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background: #fff;
+}
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      background: #fff;
-      font-family: Arial, sans-serif;
-    }
+#pages {
+  width: 100%;
+  margin: 0 auto;
+}
 
-    #pages {
-      width: 100%;
-      margin: 0 auto;
-    }
-
-    .pdf-page {
-      display: block;
-      width: 100%;
-      height: auto;
-      margin: 0;
-      padding: 0;
-    }
-
-    #status {
-      padding: 24px;
-      text-align: center;
-      color: #555;
-    }
-  </style>
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+}
+</style>
 </head>
 <body>
-  <main id="pages">
-    <div id="status">جارٍ تحميل المستند...</div>
-  </main>
+<main id="pages"></main>
 
-  <script type="module">
-    import * as pdfjsLib from
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
+<script type="module">
+import * as pdfjsLib from
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
 
-    const pdfUrl = "./document.pdf";
-    const container = document.getElementById("pages");
-    const status = document.getElementById("status");
+const container = document.getElementById("pages");
 
-    async function showPdf() {
-      try {
-        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-        container.innerHTML = "";
+async function renderPdf() {
+  const pdf = await pdfjsLib.getDocument("./document.pdf").promise;
 
-        for (let n = 1; n <= pdf.numPages; n++) {
-          const page = await pdf.getPage(n);
-          const base = page.getViewport({ scale: 1 });
-          const scale = container.clientWidth / base.width;
-          const viewport = page.getViewport({ scale });
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const original = page.getViewport({ scale: 1 });
 
-          const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
+    const cssWidth = container.clientWidth;
+    const scale = cssWidth / original.width;
+    const viewport = page.getViewport({ scale });
 
-          canvas.className = "pdf-page";
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-          canvas.style.aspectRatio =
-            `${canvas.width} / ${canvas.height}`;
+    const pixelRatio = Math.max(2, window.devicePixelRatio || 1);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
 
-          container.appendChild(canvas);
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+    canvas.width = Math.ceil(viewport.width * pixelRatio);
+    canvas.height = Math.ceil(viewport.height * pixelRatio);
 
-          await page.render({
-            canvasContext: context,
-            viewport
-          }).promise;
-        }
-      } catch (error) {
-        status.textContent =
-          "تعذر تحميل المستند. تحقق من اسم ملف PDF والرابط.";
-        console.error(error);
-      }
-    }
+    container.appendChild(canvas);
 
-    showPdf();
-  </script>
+    await page.render({
+      canvasContext: context,
+      viewport,
+      transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
+    }).promise;
+  }
+}
+
+renderPdf().catch(() => {
+  container.textContent = "تعذر تحميل المستند. تحقق من اسم الملف.";
+});
+</script>
 </body>
 </html>
